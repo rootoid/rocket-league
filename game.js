@@ -4,70 +4,237 @@
 
 // Audio system
 let audioCtx = null;
-const sounds = {};
+let musicPlaying = false;
+let musicOsc = null;
+let musicGain = null;
 
 function initAudio() {
+    if (audioCtx) {
+        audioCtx.close();
+    }
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    startThemeMusic();
 }
 
-function playSound(type, volume = 0.3) {
+function resetInput() {
+    Object.keys(keys).forEach(k => keys[k] = false);
+}
+
+// Addictive theme song - energetic looping melody
+function startThemeMusic() {
+    if (musicPlaying || !audioCtx) return;
+    musicPlaying = true;
+
+    // Create master gain for music
+    musicGain = audioCtx.createGain();
+    musicGain.connect(audioCtx.destination);
+    musicGain.gain.value = 0.15;
+
+    // Bass line pattern - driving beat
+    const bassNotes = [65, 65, 82, 82, 73, 73, 98, 82]; // Low pumping bass
+    const melodyNotes = [330, 392, 440, 392, 330, 294, 330, 392]; // Catchy hook
+
+    let beatIndex = 0;
+    const bpm = 140;
+    const beatTime = 60 / bpm;
+
+    function playBeat() {
+        if (!musicPlaying || !audioCtx) return;
+
+        // Bass hit
+        const bass = audioCtx.createOscillator();
+        const bassG = audioCtx.createGain();
+        bass.connect(bassG);
+        bassG.connect(musicGain);
+        bass.type = 'sawtooth';
+        bass.frequency.value = bassNotes[beatIndex % bassNotes.length];
+        bassG.gain.value = 0.3;
+        bassG.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + beatTime * 0.8);
+        bass.start();
+        bass.stop(audioCtx.currentTime + beatTime * 0.8);
+
+        // Melody on even beats
+        if (beatIndex % 2 === 0) {
+            const mel = audioCtx.createOscillator();
+            const melG = audioCtx.createGain();
+            mel.connect(melG);
+            melG.connect(musicGain);
+            mel.type = 'square';
+            mel.frequency.value = melodyNotes[Math.floor(beatIndex / 2) % melodyNotes.length];
+            melG.gain.value = 0.12;
+            melG.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + beatTime * 1.5);
+            mel.start();
+            mel.stop(audioCtx.currentTime + beatTime * 1.5);
+        }
+
+        // Hi-hat
+        const noise = audioCtx.createOscillator();
+        const noiseG = audioCtx.createGain();
+        noise.connect(noiseG);
+        noiseG.connect(musicGain);
+        noise.type = 'triangle';
+        noise.frequency.value = 8000 + Math.random() * 2000;
+        noiseG.gain.value = 0.05;
+        noiseG.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        noise.start();
+        noise.stop(audioCtx.currentTime + 0.05);
+
+        beatIndex++;
+        setTimeout(playBeat, beatTime * 1000);
+    }
+
+    playBeat();
+}
+
+function playSound(type, volume = 0.4) {
     if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    gain.gain.value = volume;
 
     switch (type) {
         case 'engine':
-            osc.type = 'sawtooth';
-            osc.frequency.value = 80 + Math.random() * 20;
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.value = 80 + Math.random() * 30;
+                gain.gain.value = volume * 0.5;
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            }
             break;
         case 'boost':
-            osc.type = 'sawtooth';
-            osc.frequency.value = 150 + Math.random() * 50;
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            {
+                // Whooshing boost sound
+                const osc = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc2.type = 'triangle';
+                osc.frequency.value = 150;
+                osc2.frequency.value = 200;
+                osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.2);
+                osc2.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.2);
+                gain.gain.value = volume * 0.4;
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                osc2.start(); osc2.stop(audioCtx.currentTime + 0.2);
+            }
             break;
         case 'hit':
-            osc.type = 'sine';
-            osc.frequency.value = 300;
-            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+            {
+                // Satisfying ball hit - punchy with reverb feel
+                const osc = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc2.type = 'triangle';
+                osc.frequency.value = 400;
+                osc2.frequency.value = 600;
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+                osc2.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.25);
+                gain.gain.value = volume * 0.6;
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.35);
+                osc2.start(); osc2.stop(audioCtx.currentTime + 0.3);
+            }
             break;
         case 'goal':
-            const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
-            notes.forEach((freq, i) => {
-                const o = audioCtx.createOscillator();
-                const g = audioCtx.createGain();
-                o.connect(g); g.connect(audioCtx.destination);
-                o.type = 'sine';
-                o.frequency.value = freq;
-                g.gain.value = 0.2;
-                g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5 + i * 0.1);
-                o.start(audioCtx.currentTime + i * 0.1);
-                o.stop(audioCtx.currentTime + 0.5 + i * 0.1);
-            });
+            {
+                // EPIC goal celebration - fanfare!
+                const notes = [392, 494, 587, 784, 988, 784, 988, 1175]; // G4 to D6 triumph
+                notes.forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const o2 = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); o2.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'square';
+                    o2.type = 'sawtooth';
+                    o.frequency.value = freq;
+                    o2.frequency.value = freq * 1.005; // Slight detune for richness
+                    g.gain.value = 0.25;
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6 + i * 0.08);
+                    o.start(audioCtx.currentTime + i * 0.08);
+                    o.stop(audioCtx.currentTime + 0.6 + i * 0.08);
+                    o2.start(audioCtx.currentTime + i * 0.08);
+                    o2.stop(audioCtx.currentTime + 0.6 + i * 0.08);
+                });
+                // Bass drop
+                const bass = audioCtx.createOscillator();
+                const bassG = audioCtx.createGain();
+                bass.connect(bassG); bassG.connect(audioCtx.destination);
+                bass.type = 'sawtooth';
+                bass.frequency.value = 80;
+                bassG.gain.value = 0.4;
+                bassG.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+                bass.start(); bass.stop(audioCtx.currentTime + 1.2);
+            }
             break;
         case 'jump':
-            osc.type = 'sine';
-            osc.frequency.value = 200;
-            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            {
+                // Satisfying whoosh-up jump
+                const osc = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc2.type = 'triangle';
+                osc.frequency.value = 180;
+                osc2.frequency.value = 220;
+                osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.15);
+                osc2.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.12);
+                gain.gain.value = volume * 0.35;
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                osc2.start(); osc2.stop(audioCtx.currentTime + 0.15);
+            }
+            break;
+        case 'countdown':
+            {
+                // Tick sound
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = 880;
+                gain.gain.value = 0.3;
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            }
+            break;
+        case 'wallhit':
+            {
+                // Thud for wall collision
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = 100;
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+                gain.gain.value = volume * 0.3;
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            }
             break;
     }
 }
 
-// Arena configurations - 50% BIGGER arenas, 30% bigger goals
+// Arena configurations - 50% BIGGER arenas
 const ARENAS = {
     stadium: {
         name: 'Stadium',
-        width: 300, length: 510, height: 80,
-        goalWidth: 65, goalHeight: 32, goalDepth: 25,
+        width: 450, length: 765, height: 120,
+        goalWidth: 146, goalHeight: 72, goalDepth: 57,
         floorColor: 0x2d5a27, wallColor: 0x1a3d5c,
         skyColor: 0x1a1a2e, fogColor: 0x1a1a2e,
         goalColors: [0x4fa8ff, 0xff8c42],
@@ -77,8 +244,8 @@ const ARENAS = {
     },
     neon: {
         name: 'Neon City',
-        width: 300, length: 510, height: 80,
-        goalWidth: 65, goalHeight: 32, goalDepth: 25,
+        width: 450, length: 765, height: 120,
+        goalWidth: 146, goalHeight: 72, goalDepth: 57,
         floorColor: 0x0a0a15, wallColor: 0x1a0a2e,
         skyColor: 0x05051a, fogColor: 0x0a0a20,
         goalColors: [0x00ffff, 0xff00ff],
@@ -88,14 +255,36 @@ const ARENAS = {
     },
     ice: {
         name: 'Ice World',
-        width: 300, length: 510, height: 80,
-        goalWidth: 65, goalHeight: 32, goalDepth: 25,
-        floorColor: 0xaaddee, wallColor: 0x6aa8bb,
-        skyColor: 0xd0e8f0, fogColor: 0xd8ecf2,
-        goalColors: [0x4fa8ff, 0xff6b6b],
-        carColors: [0x4fa8ff, 0xff6b6b],
-        ballColor: 0xe8f4f8, ballGlow: 0x88ddff, ballPattern: 0x66aacc,
+        width: 450, length: 765, height: 120,
+        goalWidth: 146, goalHeight: 72, goalDepth: 57,
+        floorColor: 0x1a3a4a, wallColor: 0x0a2a3a,
+        skyColor: 0x0a1520, fogColor: 0x102030,
+        goalColors: [0x00ddff, 0xff4466],
+        carColors: [0x00ddff, 0xff4466],
+        ballColor: 0xccffff, ballGlow: 0x00ffff, ballPattern: 0x88ffff,
         carStyle: 'sled', ballStyle: 'ice'
+    },
+    volcanic: {
+        name: 'Volcanic Fury',
+        width: 450, length: 765, height: 120,
+        goalWidth: 146, goalHeight: 72, goalDepth: 57,
+        floorColor: 0x1a0a08, wallColor: 0x2a0f0a,
+        skyColor: 0x0a0505, fogColor: 0x1a0808,
+        goalColors: [0xff3300, 0xff6600],
+        carColors: [0xff4400, 0xffaa00],
+        ballColor: 0x221111, ballGlow: 0xff4400, ballPattern: 0xff2200,
+        carStyle: 'volcanic', ballStyle: 'lava'
+    },
+    candycane: {
+        name: 'Candy Cane Land',
+        width: 450, length: 765, height: 120,
+        goalWidth: 146, goalHeight: 72, goalDepth: 57,
+        floorColor: 0xffeeee, wallColor: 0xffdddd,
+        skyColor: 0x331122, fogColor: 0x442233,
+        goalColors: [0xff0000, 0xffffff],
+        carColors: [0xff2222, 0xffffff],
+        ballColor: 0xffffff, ballGlow: 0xff4444, ballPattern: 0xff0000,
+        carStyle: 'candycane', ballStyle: 'candy'
     }
 };
 
@@ -104,12 +293,12 @@ const CONFIG = {
     carWidth: 5, carHeight: 2.5, carLength: 7,
     carMaxSpeed: 4.0, carBoostMaxSpeed: 6.5, carAcceleration: 0.09,
     carFriction: 0.98, carTurnSpeed: 0.05, carAirControl: 0.5,
-    jumpForce: 1.8, gravity: 0.055, doubleJumpForce: 1.4,
+    jumpForce: 0.35, jumpMaxVelocity: 2.0, jumpBoostTime: 12, gravity: 0.055, doubleJumpForce: 1.6,
     flipForce: 2.8, flipTorque: 0.2,
     boostAcceleration: 0.18, boostMax: 100, boostConsumption: 0.5, boostRegenRate: 0.25,
     ballRadius: 6.5, ballFriction: 0.995, ballBounce: 0.75, ballGravity: 0.06,
     gameDuration: 300, goalResetDelay: 2500,
-    cameraDistance: 45, cameraHeight: 18, cameraSmoothing: 0.1
+    cameraDistance: 55, cameraHeight: 22, cameraSmoothing: 0.1
 };
 
 let scene, camera, renderer, car, bot, ball;
@@ -144,6 +333,7 @@ function startGame(mapId) {
 }
 
 function init() {
+    resetInput();
     const A = currentArena;
     scene = new THREE.Scene();
     scene.background = new THREE.Color(A.skyColor);
@@ -282,21 +472,21 @@ function createArena() {
         // Net
         const netMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4 });
         const backNet = new THREE.Mesh(new THREE.PlaneGeometry(A.goalWidth, A.goalHeight, 12, 8), netMat);
-        backNet.position.set(0, A.goalHeight / 2, -side * A.goalDepth);
+        backNet.position.set(0, A.goalHeight / 2, side * A.goalDepth);
         goalG.add(backNet);
 
         // Side nets
         [-1, 1].forEach(s => {
             const sideNet = new THREE.Mesh(new THREE.PlaneGeometry(A.goalDepth, A.goalHeight, 6, 8), netMat);
             sideNet.rotation.y = Math.PI / 2;
-            sideNet.position.set(s * A.goalWidth / 2, A.goalHeight / 2, -side * A.goalDepth / 2);
+            sideNet.position.set(s * A.goalWidth / 2, A.goalHeight / 2, side * A.goalDepth / 2);
             goalG.add(sideNet);
         });
 
         // Top net
         const topNet = new THREE.Mesh(new THREE.PlaneGeometry(A.goalWidth, A.goalDepth, 12, 6), netMat);
         topNet.rotation.x = -Math.PI / 2;
-        topNet.position.set(0, A.goalHeight, -side * A.goalDepth / 2);
+        topNet.position.set(0, A.goalHeight, side * A.goalDepth / 2);
         goalG.add(topNet);
 
         goalG.position.z = side * A.length / 2;
@@ -305,92 +495,431 @@ function createArena() {
 
     // THEME-SPECIFIC DECORATIONS
     if (A.carStyle === 'muscle') {
-        // Stadium theme: Floodlights, corner flags, stands
+        // STADIUM THEME - Enhanced with detailed stands, roof, and lighting
         const lightMat = new THREE.MeshBasicMaterial({ color: 0xffee88 });
         const poleMat = new THREE.MeshBasicMaterial({ color: 0x444444 });
+        const standMat = new THREE.MeshBasicMaterial({ color: 0x2a2a3e });
+        const seatMat1 = new THREE.MeshBasicMaterial({ color: 0x4fa8ff });
+        const seatMat2 = new THREE.MeshBasicMaterial({ color: 0xff8c42 });
+        const roofMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2a, transparent: true, opacity: 0.8 });
+        const grassLineMat = new THREE.MeshBasicMaterial({ color: 0x3a7a37 });
 
-        // Four corner floodlight towers
-        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => {
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(2, 3, 70, 8), poleMat);
-            pole.position.set(x * (A.width / 2 + 25), 35, z * (A.length / 2 + 25));
+        // Grass stripes on field
+        for (let i = -6; i <= 6; i++) {
+            if (i % 2 === 0) {
+                const stripe = new THREE.Mesh(new THREE.PlaneGeometry(A.width * 0.9, 50), grassLineMat);
+                stripe.rotation.x = -Math.PI / 2;
+                stripe.position.set(0, 0.05, i * 55);
+                g.add(stripe);
+            }
+        }
+
+        // Eight corner floodlight towers (taller, more detailed)
+        [[-1, -1], [1, -1], [-1, 1], [1, 1], [-1, 0], [1, 0]].forEach(([x, z]) => {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 120, 12), poleMat);
+            pole.position.set(x * (A.width / 2 + 50), 60, z * (A.length / 2));
             g.add(pole);
-            // Light box
-            const lightBox = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 8), lightMat);
-            lightBox.position.set(x * (A.width / 2 + 25), 72, z * (A.length / 2 + 25));
-            g.add(lightBox);
+            // Multiple light banks
+            for (let j = 0; j < 3; j++) {
+                const lightBox = new THREE.Mesh(new THREE.BoxGeometry(18, 6, 6), lightMat);
+                lightBox.position.set(x * (A.width / 2 + 50), 115 + j * 8, z * (A.length / 2));
+                lightBox.rotation.y = x > 0 ? -0.3 : 0.3;
+                g.add(lightBox);
+            }
         });
 
-        // Stadium stands (big blocks around arena)
-        const standMat = new THREE.MeshBasicMaterial({ color: 0x2a2a3e });
-        [-1, 1].forEach(s => {
-            const stand = new THREE.Mesh(new THREE.BoxGeometry(50, 50, A.length + 60), standMat);
-            stand.position.set(s * (A.width / 2 + 45), 20, 0);
-            g.add(stand);
+        // Multi-tier stadium stands
+        [-1, 1].forEach(side => {
+            // Lower tier
+            const lower = new THREE.Mesh(new THREE.BoxGeometry(80, 40, A.length + 80), standMat);
+            lower.position.set(side * (A.width / 2 + 60), 20, 0);
+            g.add(lower);
+            // Upper tier
+            const upper = new THREE.Mesh(new THREE.BoxGeometry(60, 35, A.length + 60), standMat);
+            upper.position.set(side * (A.width / 2 + 85), 55, 0);
+            g.add(upper);
+            // Seat rows (colored by team side)
+            for (let row = 0; row < 8; row++) {
+                const seatRow = new THREE.Mesh(
+                    new THREE.BoxGeometry(8, 3, A.length * 0.7),
+                    side > 0 ? seatMat2 : seatMat1
+                );
+                seatRow.position.set(side * (A.width / 2 + 30 + row * 8), 10 + row * 5, 0);
+                g.add(seatRow);
+            }
+        });
+
+        // End stands
+        [-1, 1].forEach(side => {
+            const endStand = new THREE.Mesh(new THREE.BoxGeometry(A.width * 0.6, 30, 50), standMat);
+            endStand.position.set(0, 15, side * (A.length / 2 + 50));
+            g.add(endStand);
+        });
+
+        // Stadium roof canopy
+        const roofSpan = new THREE.Mesh(new THREE.BoxGeometry(A.width + 180, 5, A.length + 100), roofMat);
+        roofSpan.position.set(0, 100, 0);
+        g.add(roofSpan);
+
+        // Scoreboard structures
+        [-1, 1].forEach(side => {
+            const board = new THREE.Mesh(new THREE.BoxGeometry(60, 25, 5), new THREE.MeshBasicMaterial({ color: 0x111122 }));
+            board.position.set(0, 85, side * (A.length / 2 + 60));
+            g.add(board);
+            const screen = new THREE.Mesh(new THREE.BoxGeometry(55, 20, 1), new THREE.MeshBasicMaterial({ color: 0x333366 }));
+            screen.position.set(0, 85, side * (A.length / 2 + 57));
+            g.add(screen);
         });
 
     } else if (A.carStyle === 'cyber') {
-        // Neon theme: Glowing grid, pillars, rings
-        const neonMat1 = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
-        const neonMat2 = new THREE.MeshBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.6 });
+        // NEON CITY - Enhanced with more neon elements
+        const neonMat1 = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.7 });
+        const neonMat2 = new THREE.MeshBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.7 });
+        const neonMat3 = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.6 });
 
-        // Grid lines on floor
-        for (let i = -5; i <= 5; i++) {
-            const lineH = new THREE.Mesh(new THREE.BoxGeometry(A.width, 0.5, 1), neonMat1);
-            lineH.position.set(0, 0.3, i * 40);
+        // Enhanced grid lines on floor
+        for (let i = -8; i <= 8; i++) {
+            const lineH = new THREE.Mesh(new THREE.BoxGeometry(A.width, 0.8, 1.5), neonMat1);
+            lineH.position.set(0, 0.4, i * 50);
             g.add(lineH);
-            const lineV = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, A.length), neonMat1);
-            lineV.position.set(i * 25, 0.3, 0);
+            const lineV = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, A.length), neonMat2);
+            lineV.position.set(i * 30, 0.4, 0);
             g.add(lineV);
         }
 
         // Glowing pillars around arena
-        for (let i = 0; i < 12; i++) {
-            const angle = (i / 12) * Math.PI * 2;
-            const r = A.width / 2 + 40;
-            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 80, 8), i % 2 === 0 ? neonMat1 : neonMat2);
-            pillar.position.set(Math.cos(angle) * r, 40, Math.sin(angle) * r * 1.4);
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const r = A.width / 2 + 60;
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 100, 8), i % 2 === 0 ? neonMat1 : neonMat2);
+            pillar.position.set(Math.cos(angle) * r, 50, Math.sin(angle) * r * 1.4);
             g.add(pillar);
+            // Light beams
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 8, 60, 8), neonMat3);
+            beam.position.set(Math.cos(angle) * r, 130, Math.sin(angle) * r * 1.4);
+            g.add(beam);
         }
 
-        // Floating ring above arena
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(80, 2, 8, 48), neonMat1);
-        ring.rotation.x = Math.PI / 2;
-        ring.position.y = 60;
-        g.add(ring);
+        // Multiple floating rings
+        [60, 90, 120].forEach((y, idx) => {
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(100 - idx * 15, 2 + idx, 8, 48), idx % 2 === 0 ? neonMat1 : neonMat2);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = y;
+            g.add(ring);
+        });
+
+        // Holographic cube structures
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => {
+            const cube = new THREE.Mesh(new THREE.BoxGeometry(25, 25, 25), neonMat3);
+            cube.position.set(x * (A.width / 2 + 80), 40, z * (A.length / 2 + 40));
+            cube.rotation.set(Math.PI / 6, Math.PI / 4, 0);
+            g.add(cube);
+        });
 
     } else if (A.carStyle === 'sled') {
-        // Ice theme: Crystal formations, aurora pillars, snowflakes
-        const iceMat = new THREE.MeshBasicMaterial({ color: 0xaaddff, transparent: true, opacity: 0.6 });
-        const crystalMat = new THREE.MeshBasicMaterial({ color: 0x88ccee, transparent: true, opacity: 0.7 });
+        // ICE WORLD - Enhanced with aurora, ice palace, and snow
+        const iceMat = new THREE.MeshBasicMaterial({ color: 0xcceeFF, transparent: true, opacity: 0.5 });
+        const crystalMat = new THREE.MeshBasicMaterial({ color: 0x88ddff, transparent: true, opacity: 0.7 });
+        const auroraMat1 = new THREE.MeshBasicMaterial({ color: 0x44ffaa, transparent: true, opacity: 0.4 });
+        const auroraMat2 = new THREE.MeshBasicMaterial({ color: 0xaa88ff, transparent: true, opacity: 0.4 });
+        const auroraMat3 = new THREE.MeshBasicMaterial({ color: 0xff88aa, transparent: true, opacity: 0.4 });
+        const snowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const palaceMat = new THREE.MeshBasicMaterial({ color: 0x99ccdd, transparent: true, opacity: 0.6 });
 
-        // Ice crystals around the arena
-        for (let i = 0; i < 20; i++) {
-            const angle = (i / 20) * Math.PI * 2;
-            const r = A.width / 2 + 30 + Math.random() * 30;
-            const height = 15 + Math.random() * 25;
-            const crystal = new THREE.Mesh(new THREE.ConeGeometry(4, height, 6), crystalMat);
+        // Ice floor cracks/patterns
+        for (let i = 0; i < 15; i++) {
+            const crack = new THREE.Mesh(new THREE.PlaneGeometry(3, A.length * (0.3 + Math.random() * 0.5)), iceMat);
+            crack.rotation.x = -Math.PI / 2;
+            crack.rotation.z = (Math.random() - 0.5) * 0.5;
+            crack.position.set((Math.random() - 0.5) * A.width * 0.8, 0.1, (Math.random() - 0.5) * A.length * 0.6);
+            g.add(crack);
+        }
+
+        // Large ice crystal formations
+        for (let i = 0; i < 30; i++) {
+            const angle = (i / 30) * Math.PI * 2;
+            const r = A.width / 2 + 40 + Math.random() * 50;
+            const height = 25 + Math.random() * 50;
+            const crystal = new THREE.Mesh(new THREE.ConeGeometry(5 + Math.random() * 5, height, 6), crystalMat);
             crystal.position.set(Math.cos(angle) * r, height / 2, Math.sin(angle) * r * 1.3);
             g.add(crystal);
+            // Secondary smaller crystals
+            if (Math.random() > 0.5) {
+                const small = new THREE.Mesh(new THREE.ConeGeometry(3, height * 0.6, 6), crystalMat);
+                small.position.set(Math.cos(angle) * r + 8, height * 0.3, Math.sin(angle) * r * 1.3 + 5);
+                small.rotation.z = 0.3;
+                g.add(small);
+            }
         }
 
-        // Aurora pillars (gradient effect)
-        const auroraMat = new THREE.MeshBasicMaterial({ color: 0x66ffaa, transparent: true, opacity: 0.3 });
-        for (let i = 0; i < 6; i++) {
-            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(8, 12, 100, 8), auroraMat);
-            pillar.position.set((i - 2.5) * 50, 50, A.length / 2 + 80);
+        // Aurora borealis pillars (multiple colors)
+        const auroraMats = [auroraMat1, auroraMat2, auroraMat3];
+        for (let i = 0; i < 12; i++) {
+            const mat = auroraMats[i % 3];
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(10, 15, 150, 8), mat);
+            pillar.position.set((i - 5.5) * 50, 75, A.length / 2 + 100);
             g.add(pillar);
+            // Mirrored on other side
+            const pillar2 = new THREE.Mesh(new THREE.CylinderGeometry(10, 15, 150, 8), mat);
+            pillar2.position.set((i - 5.5) * 50, 75, -(A.length / 2 + 100));
+            g.add(pillar2);
         }
 
-        // Snowflake decorations
-        for (let i = 0; i < 30; i++) {
-            const flake = new THREE.Mesh(new THREE.OctahedronGeometry(2), iceMat);
+        // Ice palace structures on sides
+        [-1, 1].forEach(side => {
+            // Main palace wall
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(30, 80, A.length * 0.8), palaceMat);
+            wall.position.set(side * (A.width / 2 + 60), 40, 0);
+            g.add(wall);
+            // Towers
+            for (let t = -2; t <= 2; t++) {
+                const tower = new THREE.Mesh(new THREE.CylinderGeometry(12, 15, 100, 8), palaceMat);
+                tower.position.set(side * (A.width / 2 + 60), 50, t * 120);
+                g.add(tower);
+                // Spire
+                const spire = new THREE.Mesh(new THREE.ConeGeometry(10, 40, 8), crystalMat);
+                spire.position.set(side * (A.width / 2 + 60), 120, t * 120);
+                g.add(spire);
+            }
+        });
+
+        // Floating snowflakes
+        for (let i = 0; i < 60; i++) {
+            const flake = new THREE.Mesh(new THREE.OctahedronGeometry(1.5 + Math.random() * 2), snowMat);
             flake.position.set(
-                (Math.random() - 0.5) * A.width * 1.5,
-                20 + Math.random() * 60,
-                (Math.random() - 0.5) * A.length * 1.2
+                (Math.random() - 0.5) * A.width * 1.8,
+                15 + Math.random() * 100,
+                (Math.random() - 0.5) * A.length * 1.4
             );
             g.add(flake);
         }
+
+        // Frozen waterfall structures
+        [-1, 1].forEach(side => {
+            const waterfall = new THREE.Mesh(new THREE.BoxGeometry(40, 60, 8), crystalMat);
+            waterfall.position.set(side * (A.width / 2 + 40), 30, 0);
+            g.add(waterfall);
+            // Icicles
+            for (let j = 0; j < 8; j++) {
+                const icicle = new THREE.Mesh(new THREE.ConeGeometry(2, 15 + Math.random() * 10, 6), iceMat);
+                icicle.rotation.x = Math.PI;
+                icicle.position.set(side * (A.width / 2 + 35 + j * 5), 5, 0);
+                g.add(icicle);
+            }
+        });
+
+    } else if (A.carStyle === 'volcanic') {
+        // VOLCANIC FURY - Lava, volcanoes, fire, and destruction
+        const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.8 });
+        const magmaMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
+        const rockMat = new THREE.MeshBasicMaterial({ color: 0x2a1a15 });
+        const darkRockMat = new THREE.MeshBasicMaterial({ color: 0x1a0a08 });
+        const emberMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+        const smokeMat = new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.4 });
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0xff3300, transparent: true, opacity: 0.6 });
+
+        // Lava cracks on floor
+        for (let i = 0; i < 20; i++) {
+            const crack = new THREE.Mesh(new THREE.PlaneGeometry(4, A.length * (0.2 + Math.random() * 0.4)), lavaMat);
+            crack.rotation.x = -Math.PI / 2;
+            crack.rotation.z = (Math.random() - 0.5) * 0.8;
+            crack.position.set((Math.random() - 0.5) * A.width * 0.9, 0.15, (Math.random() - 0.5) * A.length * 0.7);
+            g.add(crack);
+        }
+
+        // Lava rivers around edges
+        [-1, 1].forEach(side => {
+            const river = new THREE.Mesh(new THREE.PlaneGeometry(30, A.length * 0.9), lavaMat);
+            river.rotation.x = -Math.PI / 2;
+            river.position.set(side * (A.width / 2 + 25), 0.2, 0);
+            g.add(river);
+        });
+
+        // Massive volcano structures
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z], idx) => {
+            // Volcano cone
+            const volcano = new THREE.Mesh(new THREE.ConeGeometry(80, 140, 12), rockMat);
+            volcano.position.set(x * (A.width / 2 + 120), 70, z * (A.length / 2 + 100));
+            g.add(volcano);
+            // Crater rim
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(25, 8, 8, 16), darkRockMat);
+            rim.rotation.x = Math.PI / 2;
+            rim.position.set(x * (A.width / 2 + 120), 135, z * (A.length / 2 + 100));
+            g.add(rim);
+            // Lava glow inside
+            const glow = new THREE.Mesh(new THREE.CylinderGeometry(20, 25, 30, 12), glowMat);
+            glow.position.set(x * (A.width / 2 + 120), 125, z * (A.length / 2 + 100));
+            g.add(glow);
+            // Eruption particles
+            for (let e = 0; e < 8; e++) {
+                const ember = new THREE.Mesh(new THREE.SphereGeometry(3 + Math.random() * 3, 8, 8), emberMat);
+                ember.position.set(
+                    x * (A.width / 2 + 120) + (Math.random() - 0.5) * 40,
+                    140 + Math.random() * 60,
+                    z * (A.length / 2 + 100) + (Math.random() - 0.5) * 40
+                );
+                g.add(ember);
+            }
+        });
+
+        // Rock pillars with magma veins
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const r = A.width / 2 + 50;
+            const height = 40 + Math.random() * 40;
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(6, 10, height, 8), rockMat);
+            pillar.position.set(Math.cos(angle) * r, height / 2, Math.sin(angle) * r * 1.4);
+            g.add(pillar);
+            // Magma veins
+            const vein = new THREE.Mesh(new THREE.CylinderGeometry(2, 3, height * 0.8, 6), magmaMat);
+            vein.position.set(Math.cos(angle) * r + 4, height / 2, Math.sin(angle) * r * 1.4);
+            g.add(vein);
+        }
+
+        // Smoke clouds
+        for (let i = 0; i < 30; i++) {
+            const smoke = new THREE.Mesh(new THREE.SphereGeometry(15 + Math.random() * 20, 8, 8), smokeMat);
+            smoke.position.set(
+                (Math.random() - 0.5) * A.width * 2,
+                80 + Math.random() * 80,
+                (Math.random() - 0.5) * A.length * 1.5
+            );
+            g.add(smoke);
+        }
+
+        // Floating embers/sparks
+        for (let i = 0; i < 50; i++) {
+            const spark = new THREE.Mesh(new THREE.SphereGeometry(0.8 + Math.random() * 1.5, 6, 6), emberMat);
+            spark.position.set(
+                (Math.random() - 0.5) * A.width * 1.5,
+                10 + Math.random() * 100,
+                (Math.random() - 0.5) * A.length * 1.3
+            );
+            g.add(spark);
+        }
+
+    } else if (A.carStyle === 'candycane') {
+        // CANDY CANE LAND - Festive sweets paradise
+        const redMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const pinkMat = new THREE.MeshBasicMaterial({ color: 0xff88aa });
+        const mintMat = new THREE.MeshBasicMaterial({ color: 0x88ffaa });
+        const goldMat = new THREE.MeshBasicMaterial({ color: 0xffdd44 });
+
+        // Red and white striped floor
+        for (let i = -8; i <= 8; i++) {
+            const stripe = new THREE.Mesh(
+                new THREE.PlaneGeometry(A.width, A.length * 0.05),
+                i % 2 === 0 ? redMat : whiteMat
+            );
+            stripe.rotation.x = -Math.PI / 2;
+            stripe.position.set(0, 0.05, i * A.length * 0.05);
+            g.add(stripe);
+        }
+
+        // Giant candy cane pillars around arena
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const r = A.width / 2 + 60;
+            // Candy cane post
+            for (let j = 0; j < 12; j++) {
+                const segment = new THREE.Mesh(
+                    new THREE.CylinderGeometry(6, 6, 12, 12),
+                    j % 2 === 0 ? redMat : whiteMat
+                );
+                segment.position.set(Math.cos(angle) * r, j * 12 + 6, Math.sin(angle) * r * 1.4);
+                g.add(segment);
+            }
+            // Curved top
+            const hook = new THREE.Mesh(
+                new THREE.TorusGeometry(15, 5, 8, 12, Math.PI),
+                i % 2 === 0 ? redMat : whiteMat
+            );
+            hook.rotation.y = angle + Math.PI / 2;
+            hook.position.set(Math.cos(angle) * (r - 15), 140, Math.sin(angle) * (r - 15) * 1.4);
+            g.add(hook);
+        }
+
+        // Giant lollipops
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z], idx) => {
+            // Stick
+            const stick = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 100, 8), whiteMat);
+            stick.position.set(x * (A.width / 2 + 100), 50, z * (A.length / 2 + 80));
+            g.add(stick);
+            // Candy top - spiral swirl
+            const candyMats = [redMat, pinkMat, mintMat, goldMat];
+            const candy = new THREE.Mesh(
+                new THREE.SphereGeometry(35, 24, 24),
+                candyMats[idx]
+            );
+            candy.position.set(x * (A.width / 2 + 100), 115, z * (A.length / 2 + 80));
+            g.add(candy);
+            // Swirl pattern
+            const swirl = new THREE.Mesh(
+                new THREE.TorusGeometry(25, 3, 8, 32, Math.PI * 3),
+                whiteMat
+            );
+            swirl.position.copy(candy.position);
+            swirl.rotation.set(Math.random(), Math.random(), Math.random());
+            g.add(swirl);
+        });
+
+        // Gumdrops scattered around
+        const gumdropColors = [0xff0000, 0x00ff00, 0xffff00, 0xff00ff, 0x00ffff, 0xff8800];
+        for (let i = 0; i < 30; i++) {
+            const col = gumdropColors[i % gumdropColors.length];
+            const mat = new THREE.MeshBasicMaterial({ color: col });
+            const gumdrop = new THREE.Mesh(new THREE.SphereGeometry(8 + Math.random() * 8, 12, 8), mat);
+            gumdrop.scale.y = 0.7;
+            gumdrop.position.set(
+                (Math.random() - 0.5) * A.width * 1.6,
+                6,
+                (Math.random() - 0.5) * A.length * 1.3
+            );
+            g.add(gumdrop);
+        }
+
+        // Peppermint platforms
+        for (let i = 0; i < 8; i++) {
+            const peppermint = new THREE.Mesh(new THREE.CylinderGeometry(25, 25, 5, 24), whiteMat);
+            peppermint.position.set(
+                (Math.random() - 0.5) * A.width * 1.5,
+                40 + Math.random() * 60,
+                (Math.random() - 0.5) * A.length * 1.2
+            );
+            g.add(peppermint);
+            // Red swirl
+            const swirlRed = new THREE.Mesh(new THREE.TorusGeometry(18, 3, 4, 16, Math.PI * 2), redMat);
+            swirlRed.rotation.x = Math.PI / 2;
+            swirlRed.position.copy(peppermint.position);
+            swirlRed.position.y += 3;
+            g.add(swirlRed);
+        }
+
+        // Snowflake sparkles (winter candy theme)
+        for (let i = 0; i < 60; i++) {
+            const sparkle = new THREE.Mesh(new THREE.OctahedronGeometry(2 + Math.random() * 2), whiteMat);
+            sparkle.position.set(
+                (Math.random() - 0.5) * A.width * 2,
+                20 + Math.random() * 100,
+                (Math.random() - 0.5) * A.length * 1.6
+            );
+            g.add(sparkle);
+        }
+
+        // Ribbon arches
+        [-1, 1].forEach(side => {
+            for (let r = 0; r < 3; r++) {
+                const ribbon = new THREE.Mesh(
+                    new THREE.TorusGeometry(100 - r * 20, 4, 8, 32, Math.PI),
+                    r % 2 === 0 ? redMat : whiteMat
+                );
+                ribbon.rotation.z = Math.PI / 2;
+                ribbon.rotation.y = Math.PI / 2;
+                ribbon.position.set(0, 0, side * (A.length / 2 + 50));
+                g.add(ribbon);
+            }
+        });
     }
 
     // Crowd (enhanced)
@@ -450,6 +979,42 @@ function createCar(color, team) {
             ski.position.set(s * CONFIG.carWidth * 0.4, 0.1, 0);
             g.add(ski);
         });
+    } else if (A.carStyle === 'volcanic') {
+        // Glowing magma accents
+        const magmaGlow = new THREE.Mesh(
+            new THREE.BoxGeometry(CONFIG.carWidth * 1.1, 0.15, CONFIG.carLength * 1.05),
+            new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.5 })
+        );
+        magmaGlow.position.y = CONFIG.carHeight * 0.1;
+        g.add(magmaGlow);
+        // Flame exhaust
+        const flame = new THREE.Mesh(
+            new THREE.ConeGeometry(1.5, 4, 8),
+            new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.7 })
+        );
+        flame.rotation.x = Math.PI / 2;
+        flame.position.set(0, CONFIG.carHeight * 0.3, CONFIG.carLength * 0.6);
+        g.add(flame);
+    } else if (A.carStyle === 'candycane') {
+        // Candy cane stripes
+        const candyRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const candyWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for (let i = 0; i < 6; i++) {
+            const stripe = new THREE.Mesh(
+                new THREE.BoxGeometry(CONFIG.carWidth * 1.02, 0.2, CONFIG.carLength * 0.15),
+                i % 2 === 0 ? candyRed : candyWhite
+            );
+            stripe.position.set(0, CONFIG.carHeight * 0.65, (i - 2.5) * CONFIG.carLength * 0.15);
+            g.add(stripe);
+        }
+        // Peppermint wheel
+        const mint = new THREE.Mesh(
+            new THREE.CylinderGeometry(1, 1, 0.3, 16),
+            new THREE.MeshBasicMaterial({ color: 0xff4444 })
+        );
+        mint.rotation.x = Math.PI / 2;
+        mint.position.set(0, CONFIG.carHeight * 0.8, -CONFIG.carLength * 0.3);
+        g.add(mint);
     }
 
     // Wheels
@@ -473,6 +1038,8 @@ function createCar(color, team) {
     g.isGrounded = true;
     g.canDoubleJump = false;
     g.canJump = true;
+    g.isJumping = false;
+    g.jumpTimer = 0;
     g.isFlipping = false;
     g.flipRotation = new THREE.Vector3();
     g.teamSide = team;
@@ -508,6 +1075,34 @@ function createBall() {
             new THREE.MeshBasicMaterial({ color: A.ballPattern, wireframe: true, transparent: true, opacity: 0.5 })
         );
         g.add(pattern);
+    } else if (A.ballStyle === 'lava') {
+        // Glowing magma ball
+        const lavaGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(CONFIG.ballRadius * 1.2, 16, 16),
+            new THREE.MeshBasicMaterial({ color: A.ballGlow, transparent: true, opacity: 0.3 })
+        );
+        g.add(lavaGlow);
+        const cracks = new THREE.Mesh(
+            new THREE.SphereGeometry(CONFIG.ballRadius * 1.02, 12, 12),
+            new THREE.MeshBasicMaterial({ color: A.ballPattern, wireframe: true, transparent: true, opacity: 0.6 })
+        );
+        g.add(cracks);
+    } else if (A.ballStyle === 'candy') {
+        // Red and white candy swirl ball
+        for (let i = 0; i < 6; i++) {
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(CONFIG.ballRadius * 0.85, 0.5, 8, 16),
+                new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xff0000 : 0xffffff })
+            );
+            ring.rotation.x = i * (Math.PI / 6);
+            ring.rotation.z = i * (Math.PI / 4);
+            g.add(ring);
+        }
+        const glow = new THREE.Mesh(
+            new THREE.SphereGeometry(CONFIG.ballRadius * 1.1, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xff8888, transparent: true, opacity: 0.2 })
+        );
+        g.add(glow);
     } else {
         const pattern = new THREE.Mesh(
             new THREE.SphereGeometry(CONFIG.ballRadius * 1.01, 20, 20),
@@ -526,7 +1121,12 @@ function createBall() {
 // INPUT
 // ============================================
 
+
+let inputSetupDone = false;
+
 function setupInput() {
+    if (inputSetupDone) return;
+    inputSetupDone = true;
     document.addEventListener('keydown', e => { if (!e.repeat) handleKey(e.code, true); e.preventDefault(); });
     document.addEventListener('keyup', e => handleKey(e.code, false));
 }
@@ -539,19 +1139,66 @@ function handleKey(code, pressed) {
         case 'KeyD': case 'ArrowRight': keys.right = pressed; break;
         case 'Space': keys.jump = pressed; if (pressed) performJump(car); break;
         case 'ShiftLeft': case 'ShiftRight': keys.boost = pressed; break;
+        case 'Escape': if (pressed) returnToMenu(); break;
     }
+}
+
+
+let replayIntervalId = null;
+
+function returnToMenu() {
+    // Stop music
+    musicPlaying = false;
+
+    // Stop loop
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+
+    // Stop replay
+    if (replayIntervalId) {
+        clearInterval(replayIntervalId);
+        replayIntervalId = null;
+    }
+
+    // Reset game state
+    gameStarted = false;
+    isGameOver = false;
+    isPaused = false;
+    isReplaying = false;
+    replayBuffer = [];
+    blueScore = 0;
+    orangeScore = 0;
+    gameTime = CONFIG.gameDuration;
+    // Clear scene
+    while (scene && scene.children.length > 0) {
+        scene.remove(scene.children[0]);
+    }
+    if (renderer && renderer.domElement) {
+        renderer.domElement.remove();
+    }
+    // Show menu
+    document.getElementById('map-select').classList.remove('hidden');
+    document.getElementById('controls').classList.add('hidden');
+    document.getElementById('game-over').classList.add('hidden');
+    document.getElementById('goal-notification').classList.add('hidden');
+    document.getElementById('replay-indicator').classList.add('hidden');
 }
 
 function performJump(c) {
     if (c.isGrounded && c.canJump) {
-        c.velocity.y = CONFIG.jumpForce;
+        // Start jump with initial boost
+        c.velocity.y = CONFIG.jumpForce * 2;
         c.isGrounded = false;
         c.canDoubleJump = true;
         c.canJump = false;
+        c.isJumping = true; // Track that we're in initial jump
         if (c === car) playSound('jump');
     } else if (c.canDoubleJump && !c.isGrounded) {
         c.velocity.y = CONFIG.doubleJumpForce;
         c.canDoubleJump = false;
+        c.isJumping = false;
         if (c === car) playSound('jump');
     }
 }
@@ -578,6 +1225,7 @@ function updateCarPhysics(c, isPlayer) {
         if (c.velocity.y < 0) c.velocity.y = 0;
         c.isGrounded = true;
         c.isFlipping = false;
+        c.jumpTimer = 0; // Reset jump timer on landing
         c.rotation.x *= 0.9;
         c.rotation.z *= 0.9;
         if (!keys.jump || !isPlayer) c.canJump = true;
@@ -585,7 +1233,22 @@ function updateCarPhysics(c, isPlayer) {
         c.isGrounded = false;
     }
 
-    if (!c.isGrounded) c.velocity.y -= CONFIG.gravity;
+    if (!c.isGrounded) {
+        c.velocity.y -= CONFIG.gravity;
+        // Gradual jump boost with time limit
+        if (c.isJumping && c.velocity.y < CONFIG.jumpMaxVelocity && c.jumpTimer < CONFIG.jumpBoostTime) {
+            // For player: only boost while holding jump key
+            // For bot: always boost until timer expires
+            if (!isPlayer || keys.jump) {
+                c.velocity.y += CONFIG.jumpForce;
+                c.jumpTimer++;
+            }
+        }
+        // Stop boosting jump when time expired, or player releases key
+        if (c.jumpTimer >= CONFIG.jumpBoostTime || (isPlayer && !keys.jump)) {
+            c.isJumping = false;
+        }
+    }
 
     if (isPlayer) {
         const speed = c.velocity.length();
@@ -696,6 +1359,8 @@ function checkGoals() {
     const A = currentArena;
     const goalZ = A.length / 2 + A.goalDepth / 2;
 
+    if (isPaused || isReplaying) return;
+
     if (Math.abs(ball.position.x) < A.goalWidth / 2 && ball.position.y < A.goalHeight) {
         if (ball.position.z < -goalZ + A.goalDepth) scoreGoal('orange');
         else if (ball.position.z > goalZ - A.goalDepth) scoreGoal('blue');
@@ -703,6 +1368,7 @@ function checkGoals() {
 }
 
 function scoreGoal(team) {
+    if (isPaused) return;
     if (team === 'blue') {
         blueScore++;
         document.getElementById('blue-score').textContent = blueScore;
@@ -761,9 +1427,10 @@ function startReplay(onComplete) {
     const origCar = { pos: car.position.clone(), rot: car.rotation.clone() };
     const origBot = { pos: bot.position.clone(), rot: bot.rotation.clone() };
 
-    const replayInterval = setInterval(() => {
+    replayIntervalId = setInterval(() => {
         if (replayIndex >= replayBuffer.length) {
-            clearInterval(replayInterval);
+            clearInterval(replayIntervalId);
+            replayIntervalId = null;
 
             // Restore positions
             ball.position.copy(origBall.pos);
@@ -1021,9 +1688,13 @@ function updateCamera() {
     camera.lookAt(look);
 }
 
+
+let animationId = null;
+
 function gameLoop(ts) {
-    requestAnimationFrame(gameLoop);
+    animationId = requestAnimationFrame(gameLoop);
     if (!gameStarted) return;
+
 
     const dt = Math.min((ts - lastTime) / 1000, 0.1);
     lastTime = ts;
